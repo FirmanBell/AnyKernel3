@@ -4,49 +4,77 @@
 ### AnyKernel setup
 # global properties
 properties() { '
-kernel.string=Kernel for Xiaomi MI 8 Lite a.k.a platina
-do.devicecheck=1
+kernel.string=kernel for Xiaomi Redmi 4X a.k.a santoni
+do.devicecheck=0
 do.modules=0
 do.systemless=1
 do.cleanup=1
 do.cleanuponabort=0
-device.name1=platina
-device.name2=MI8Lite
-device.name3=mi8lite
-device.name4=8lite
-device.name5=
+device.name1=
 supported.versions=
 supported.patchlevels=
 supported.vendorpatchlevels=
 '; } # end properties
 
-# shell variables
+
+### AnyKernel install
+## boot files attributes
+boot_attributes() {
+set_perm_recursive 0 0 755 644 $RAMDISK/*;
+set_perm_recursive 0 0 750 750 $RAMDISK/init* $RAMDISK/sbin;
+} # end attributes
+
+# boot shell variables
 BLOCK=/dev/block/bootdevice/by-name/boot;
 IS_SLOT_DEVICE=0;
 RAMDISK_COMPRESSION=auto;
 PATCH_VBMETA_FLAG=auto;
 
-## AnyKernel methods (DO NOT CHANGE)
-# import patching functions/variables - see for reference
+# import functions/variables and setup patching - see for reference (DO NOT REMOVE)
 . tools/ak3-core.sh;
 
-## AnyKernel file attributes
-# set permissions/ownership for included ramdisk files
-chmod -R 750 $RAMDISK/*;
-chown -R root:root $RAMDISK/*;
+# Backup the partition
+if dd if=${BLOCK} of=/sdcard/backup-boot.img; then
+  ui_print ""
+  ui_print "Your current boot image has been saved to: /sdcard/backup-boot.img"
+  ui_print ""
+fi
 
-## AnyKernel boot install
-dump_boot;
+# If lk2nd is installed, Read boot from 1MB offset
+if [ "$(dd if=${BLOCK} skip=64 bs=1 count=5 2>/dev/null)" == "lk2nd" ]; then
+  ui_print "Detected lk2nd installation! Skipping the first 1MB."
+  CUSTOMDD="bs=1M skip=1"
+  lk2nd=1
+fi
 
-# Add skip_override parameter to cmdline so user doesn't have to reflash Magisk
-if [ -d $ramdisk/.backup ]; then
-  ui_print " "; ui_print "Magisk detected! Patching cmdline so reflashing Magisk is not necessary...";
-  patch_cmdline "skip_override" "skip_override";
+# boot install
+dump_boot; # use split_boot to skip ramdisk unpack, e.g. for devices with init_boot ramdisk
+
+# init.rc
+#backup_file init.rc;
+#replace_string init.rc "cpuctl cpu,timer_slack" "mount cgroup none /dev/cpuctl cpu" "mount cgroup none /dev/cpuctl cpu,timer_slack";
+
+# init.tuna.rc
+#backup_file init.tuna.rc;
+#insert_line init.tuna.rc "nodiratime barrier=0" after "mount_all /fstab.tuna" "\tmount ext4 /dev/block/platform/omap/omap_hsmmc.0/by-name/userdata /data remount nosuid nodev noatime nodiratime barrier=0";
+#append_file init.tuna.rc "bootscript" init.tuna;
+
+# fstab.tuna
+#backup_file fstab.tuna;
+#patch_fstab fstab.tuna /system ext4 options "noatime,barrier=1" "noatime,nodiratime,barrier=0";
+#patch_fstab fstab.tuna /cache ext4 options "barrier=1" "barrier=0,nomblk_io_submit";
+#patch_fstab fstab.tuna /data ext4 options "data=ordered" "nomblk_io_submit,data=writeback";
+#append_file fstab.tuna "usbdisk" fstab;
+
+# If lk2nd is installed, Write boot to 1MB offset
+if [ "$lk2nd" == "1" ]; then
+  CUSTOMDD="bs=1M seek=1"
+  toybox blkdiscard -o 1048576 $BLOCK
 else
-  patch_cmdline "skip_override" "";
-fi;
+  toybox blkdiscard $BLOCK
+fi
 
-write_boot;
+write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_boot ramdisk
 ## end boot install
 
 
