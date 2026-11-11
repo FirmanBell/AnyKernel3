@@ -4,16 +4,16 @@
 ### AnyKernel setup
 # global properties
 properties() { '
-kernel.string=Kernel for Xiaomi MI 8 Lite a.k.a platina
+kernel.string=perf kernel for Xiaomi daisy
 do.devicecheck=1
 do.modules=0
 do.systemless=1
 do.cleanup=1
 do.cleanuponabort=0
-device.name1=platina
-device.name2=MI8Lite
-device.name3=mi8lite
-device.name4=8lite
+device.name1=daisy
+device.name2=daisy_sprout
+device.name3=daisy_sprout
+device.name4=daisy
 device.name5=
 supported.versions=
 supported.patchlevels=
